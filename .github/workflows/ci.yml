@@ -1,9 +1,8 @@
 name: Test SSH Key Script
 
-# Run workflow daily via cron
 on:
   schedule:
-    - cron: "0 0 * * *"  # Every day at 00:00 UTC
+    - cron: "0 0 * * *"  # daily at 00:00 UTC
 
 jobs:
   test-ssh-key:
@@ -17,24 +16,22 @@ jobs:
 
       - name: Run SSH key generation in dry mode
         run: |
-          # Temporary key name and HOME
+          set -e
+
           TEST_KEY="test_ci_key"
           TEST_DIR=$(mktemp -d)
-          export HOME=$TEST_DIR
+          export HOME="$TEST_DIR"
 
-          # Override ssh to skip real copying
-          function ssh() { echo "Skipping SSH copy"; }
-          export -f ssh
+          # Create a wrapper script for ssh to skip real connection
+          SSH_WRAPPER="$TEST_DIR/ssh_wrapper.sh"
+          echo -e "#!/usr/bin/env bash\necho 'Skipping SSH copy'" > "$SSH_WRAPPER"
+          chmod +x "$SSH_WRAPPER"
+          export PATH="$TEST_DIR:$PATH"
 
-          # Run the script with prompts simulated via here-doc
-          ./ssh-addkey.sh <<EOF
-$TEST_KEY
-127.0.0.1
-ciuser
-22
-EOF
+          # Run the SSH key script non-interactively
+          printf "%s\n%s\n%s\n%s\n" "$TEST_KEY" "127.0.0.1" "ciuser" "22" | ./ssh-addkey.sh
 
-          # Check that the key files exist
+          # Check if keys were created
           if [[ ! -f "$HOME/.ssh/$TEST_KEY" ]]; then
             echo "Private key not created!"
             exit 1
@@ -44,6 +41,6 @@ EOF
             exit 1
           fi
 
-          # Validate public key format
+          # Validate the public key format
           ssh-keygen -l -f "$HOME/.ssh/$TEST_KEY.pub"
 
