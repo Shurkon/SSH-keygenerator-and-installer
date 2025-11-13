@@ -1,0 +1,49 @@
+name: Test SSH Key Script
+
+# Run workflow daily via cron
+on:
+  schedule:
+    - cron: "0 0 * * *"  # Every day at 00:00 UTC
+
+jobs:
+  test-ssh-key:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Make script executable
+        run: chmod +x ./ssh-addkey.sh
+
+      - name: Run SSH key generation in dry mode
+        run: |
+          # Temporary key name and HOME
+          TEST_KEY="test_ci_key"
+          TEST_DIR=$(mktemp -d)
+          export HOME=$TEST_DIR
+
+          # Override ssh to skip real copying
+          function ssh() { echo "Skipping SSH copy"; }
+          export -f ssh
+
+          # Run the script with prompts simulated via here-doc
+          ./ssh-addkey.sh <<EOF
+$TEST_KEY
+127.0.0.1
+ciuser
+22
+EOF
+
+          # Check that the key files exist
+          if [[ ! -f "$HOME/.ssh/$TEST_KEY" ]]; then
+            echo "Private key not created!"
+            exit 1
+          fi
+          if [[ ! -f "$HOME/.ssh/$TEST_KEY.pub" ]]; then
+            echo "Public key not created!"
+            exit 1
+          fi
+
+          # Validate public key format
+          ssh-keygen -l -f "$HOME/.ssh/$TEST_KEY.pub"
+
