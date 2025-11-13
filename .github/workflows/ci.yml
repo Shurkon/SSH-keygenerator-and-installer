@@ -26,6 +26,10 @@ jobs:
           TEST_DIR=$(mktemp -d)
           export HOME="$TEST_DIR"
 
+          # Create ~/.ssh in temporary HOME
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+
           # Create a wrapper for ssh to skip real connection
           SSH_WRAPPER="$TEST_DIR/ssh_wrapper.sh"
           echo -e "#!/usr/bin/env bash\necho 'Skipping SSH copy'" > "$SSH_WRAPPER"
@@ -47,4 +51,4 @@ jobs:
 
           # Validate the public key format
           ssh-keygen -l -f "$HOME/.ssh/$TEST_KEY.pub"
-
+ 
