@@ -3,10 +3,10 @@ name: Test SSH Key Script
 on:
   push:
     branches:
-      - main   # Se ejecuta en cada commit a main
-  workflow_dispatch:   # Permite ejecución manual desde GitHub
+      - main
+  workflow_dispatch:   # manual trigger
   schedule:
-    - cron: "0 0 * * *"  # Ejecuta diariamente a medianoche UTC
+    - cron: "0 0 * * *"  # daily at 00:00 UTC
 
 jobs:
   test-ssh-key:
@@ -30,16 +30,14 @@ jobs:
           mkdir -p "$HOME/.ssh"
           chmod 700 "$HOME/.ssh"
 
-          # Create a wrapper for ssh to skip real connection
-          SSH_WRAPPER="$TEST_DIR/ssh_wrapper.sh"
-          echo -e "#!/usr/bin/env bash\necho 'Skipping SSH copy'" > "$SSH_WRAPPER"
-          chmod +x "$SSH_WRAPPER"
-          export PATH="$TEST_DIR:$PATH"
+          # Run the SSH key script in a subshell with ssh disabled
+          env SSH_COMMAND_SKIP=true bash -c '
+            function ssh() { echo "Skipping SSH copy"; }
+            export -f ssh
+            printf "%s\n%s\n%s\n%s\n" "'"$TEST_KEY"'" "127.0.0.1" "ciuser" "22" | ./ssh-addkey.sh
+          '
 
-          # Run the SSH key script non-interactively
-          printf "%s\n%s\n%s\n%s\n" "$TEST_KEY" "127.0.0.1" "ciuser" "22" | ./ssh-addkey.sh
-
-          # Check that the key files exist
+          # Verify keys exist
           if [[ ! -f "$HOME/.ssh/$TEST_KEY" ]]; then
             echo "Private key not created!"
             exit 1
@@ -49,6 +47,10 @@ jobs:
             exit 1
           fi
 
-          # Validate the public key format
+          # Check public key format
           ssh-keygen -l -f "$HOME/.ssh/$TEST_KEY.pub"
- 
+
+          # Cleanup
+          rm -rf "$TEST_DIR"
+
+
