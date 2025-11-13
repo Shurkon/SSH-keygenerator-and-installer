@@ -1,6 +1,6 @@
 # SSH Key Generator & Installer
 
-A simple Bash script that generates an RSA 4096-bit SSH key and copies it to a remote server's `authorized_keys`. Supports custom SSH ports.
+A simple Bash script that generates an RSA 4096-bit long SSH key and copies it to a remote server's `authorized_keys`. Supports custom SSH ports.
 
 ## Usage
 
